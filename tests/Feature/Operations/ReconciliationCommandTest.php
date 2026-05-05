@@ -129,6 +129,75 @@ it('flags drift when a user account is forced into a negative balance', function
     expect($output)->toContain($this->bob->id);
 });
 
+it('flags drift when a COMPLETED transfer has two same-direction ledger rows', function (): void {
+    // A COMPLETED transfer must have exactly one DEBIT and one CREDIT. Two rows
+    // of the same direction satisfies the count-of-2 check but breaks the
+    // direction-split invariant.
+    $skewed = Transfer::create([
+        'type' => TransferType::Transfer,
+        'idempotency_key' => 'rec-skewed',
+        'from_account_id' => $this->alice->id,
+        'to_account_id' => $this->bob->id,
+        'amount' => 200,
+        'status' => TransferStatus::Completed,
+    ]);
+
+    foreach ([$this->alice->id, $this->bob->id] as $accountId) {
+        LedgerEntry::create([
+            'account_id' => $accountId,
+            'transfer_id' => $skewed->id,
+            'direction' => LedgerDirection::Debit,
+            'amount' => 200,
+            'created_at' => now(),
+        ]);
+    }
+
+    $exit = Artisan::call('ledger:reconcile');
+    $output = Artisan::output();
+
+    expect($exit)->toBe(1);
+    expect($output)->toContain($skewed->id);
+    expect($output)->toContain('unbalanced direction split');
+    expect($output)->toContain('debits=2');
+    expect($output)->toContain('credits=0');
+});
+
+it('flags drift when a COMPLETED transfer has debit and credit amounts that disagree', function (): void {
+    // Per-transfer double-entry must net to zero. A debit of 500 against a
+    // credit of 400 (e.g. half of a tampered row) breaks that invariant even
+    // though the row counts and directions look right.
+    $mismatched = Transfer::create([
+        'type' => TransferType::Transfer,
+        'idempotency_key' => 'rec-mismatch',
+        'from_account_id' => $this->alice->id,
+        'to_account_id' => $this->bob->id,
+        'amount' => 500,
+        'status' => TransferStatus::Completed,
+    ]);
+
+    LedgerEntry::create([
+        'account_id' => $this->alice->id,
+        'transfer_id' => $mismatched->id,
+        'direction' => LedgerDirection::Debit,
+        'amount' => 500,
+        'created_at' => now(),
+    ]);
+    LedgerEntry::create([
+        'account_id' => $this->bob->id,
+        'transfer_id' => $mismatched->id,
+        'direction' => LedgerDirection::Credit,
+        'amount' => 400,
+        'created_at' => now(),
+    ]);
+
+    $exit = Artisan::call('ledger:reconcile');
+    $output = Artisan::output();
+
+    expect($exit)->toBe(1);
+    expect($output)->toContain($mismatched->id);
+    expect($output)->toContain('debit (500) ≠ credit (400)');
+});
+
 it('reports zero violations even when the system account has a large negative balance', function (): void {
     // System balance is -5000 (it counterparties the deposit). That's expected
     // — system is allowed to be negative. Reconciliation should still pass.

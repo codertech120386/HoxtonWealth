@@ -110,6 +110,33 @@ it('returns a non-zero exit code when no failed job matches the supplied transfe
     expect(Artisan::output())->toContain($unknownId);
 });
 
+it('ignores failed_jobs rows belonging to other job classes', function (): void {
+    // The DLQ command must only surface ProcessTransferJob failures — Laravel's
+    // failed_jobs table is shared across every queued job in the system, so an
+    // unrelated failure (a SendEmailJob, a scheduled report, etc.) should not
+    // appear in the transfer-replay listing.
+    $transfer = pendingTransfer($this->alice, $this->bob, 100);
+    fakeFailedJob($transfer->id);
+
+    DB::table('failed_jobs')->insert([
+        'uuid' => (string) Str::uuid(),
+        'connection' => 'database',
+        'queue' => 'default',
+        'payload' => json_encode([
+            'displayName' => 'App\\Jobs\\SomeUnrelatedJob',
+            'data' => ['commandName' => 'App\\Jobs\\SomeUnrelatedJob', 'command' => 'opaque'],
+        ]),
+        'exception' => 'RuntimeException: unrelated',
+        'failed_at' => now(),
+    ]);
+
+    Artisan::call('transfers:retry-failed');
+    $output = Artisan::output();
+
+    expect($output)->toContain($transfer->id);
+    expect($output)->not->toContain('SomeUnrelatedJob');
+});
+
 it('end-to-end: a job that exhausts retries lands in DLQ and replay completes the transfer', function (): void {
     // Fund alice so the transfer would actually succeed if processed.
     app(\App\Services\TransferService::class)->deposit(
