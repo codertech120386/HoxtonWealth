@@ -8,12 +8,13 @@ use App\Enums\AuditEventType;
 use App\Models\Account;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AccountService
 {
     public function create(string $name, string $correlationId): Account
     {
-        return DB::transaction(function () use ($name, $correlationId): Account {
+        $account = DB::transaction(function () use ($name, $correlationId): Account {
             $account = Account::create(['name' => $name]);
 
             AuditLog::create([
@@ -26,5 +27,12 @@ class AccountService
 
             return $account;
         });
+
+        Log::info('AccountCreated', [
+            'account_id' => $account->id,
+            'name' => $name,
+        ]);
+
+        return $account;
     }
 }

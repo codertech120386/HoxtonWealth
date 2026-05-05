@@ -61,6 +61,7 @@ class ProcessTransferJob implements ShouldQueue
             $processor->process($transfer, $this->correlationId);
             Log::info('Transfer completed');
         } catch (InsufficientBalanceException $e) {
+            Log::warning('TransferFailed', ['reason' => $e->getMessage()]);
             $this->markFailed($transfer, $e->getMessage());
             $this->fail($e);
         } catch (Throwable $e) {

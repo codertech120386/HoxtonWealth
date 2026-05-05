@@ -13,6 +13,7 @@ use App\Models\AuditLog;
 use App\Models\Transfer;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransferService
 {
@@ -36,7 +37,7 @@ class TransferService
         }
 
         try {
-            return DB::transaction(function () use ($userAccount, $amount, $idempotencyKey, $correlationId): Transfer {
+            $transfer = DB::transaction(function () use ($userAccount, $amount, $idempotencyKey, $correlationId): Transfer {
                 $systemAccount = Account::where('is_system', true)->firstOrFail();
 
                 $transfer = Transfer::create([
@@ -74,6 +75,14 @@ class TransferService
             // their committed row instead of erroring.
             return Transfer::where('idempotency_key', $idempotencyKey)->firstOrFail();
         }
+
+        Log::info('DepositMade', [
+            'transfer_id' => $transfer->id,
+            'account_id' => $userAccount->id,
+            'amount' => $amount,
+        ]);
+
+        return $transfer;
     }
 
     /**
@@ -121,6 +130,13 @@ class TransferService
         } catch (UniqueConstraintViolationException) {
             return Transfer::where('idempotency_key', $idempotencyKey)->firstOrFail();
         }
+
+        Log::info('TransferRequested', [
+            'transfer_id' => $transfer->id,
+            'account_id' => $fromAccount->id,
+            'to_account_id' => $toAccount->id,
+            'amount' => $amount,
+        ]);
 
         ProcessTransferJob::dispatch($transfer->id, $correlationId);
 
