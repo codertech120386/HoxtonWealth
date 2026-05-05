@@ -55,12 +55,12 @@ Honest gaps so reviewers know where the seams are:
 
 - **Forking-process parallelism.** I trust the `lockForUpdate` directive but didn't write a test that actually causes lock contention. The sequential test demonstrates the algorithm; reconciliation catches drift if the lock somehow doesn't bite. A real test (e.g. `pcntl_fork` + two simultaneous `php artisan` invocations) was punted for time.
 - **High-volume performance.** No load testing. The architecture should hold under thousands of transfers/sec for unrelated accounts; hot accounts will serialize.
-- **Long-running production behaviour.** This is a fresh codebase with ~89 tests. It hasn't been observed under prolonged real traffic, so anything that surfaces only under sustained load (memory leaks, connection pool exhaustion, disk-fill from logs) is unproven.
+- **Long-running production behaviour.** This is a fresh codebase with ~92 tests. It hasn't been observed under prolonged real traffic, so anything that surfaces only under sustained load (memory leaks, connection pool exhaustion, disk-fill from logs) is unproven.
 
 ---
 
 ## On using AI for a take-home
 
-The output here would have been impossible to produce manually in the spec's 8–12 hour budget — including the design rationale, OpenAPI annotations on every endpoint, structured JSON logging with cross-process correlation IDs, reconciliation, DLQ replay, rate limiting, and ~89 tests. AI assistance is what made the breadth feasible.
+The output here would have been impossible to produce manually in the spec's 8–12 hour budget — including the design rationale, OpenAPI annotations on every endpoint, structured JSON logging with cross-process correlation IDs, reconciliation, DLQ replay, rate limiting, and ~92 tests. AI assistance is what made the breadth feasible.
 
 What it did *not* do is make the engineering judgment for me. Decisions about schema (single `transfers` table vs separate, polymorphic vs explicit FKs, `is_system` vs magic UUID), the two-phase vs one-tx processor, what to test vs trust, and what to defer to "production hardening" all came from explicit conversations where Claude laid out trade-offs and I picked. The design rationale in DESIGN.md is the result of those conversations, recorded faithfully.
