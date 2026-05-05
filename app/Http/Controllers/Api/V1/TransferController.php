@@ -48,6 +48,7 @@ class TransferController
             new OA\Response(response: 401, description: 'Missing or invalid X-Api-Key'),
             new OA\Response(response: 404, description: 'One of the accounts does not exist, or one side is the system account'),
             new OA\Response(response: 422, description: 'Validation error (missing fields, amount ≤ 0, or from == to)'),
+            new OA\Response(response: 429, description: 'Per-API-key rate limit exceeded; retry after the duration in the Retry-After header.'),
         ],
     )]
     public function store(InitiateTransferRequest $request): JsonResponse

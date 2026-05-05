@@ -16,5 +16,5 @@ Route::get('/accounts/{id}', [AccountController::class, 'show']);
 Route::get('/accounts/{id}/ledger', [LedgerController::class, 'index']);
 Route::post('/accounts/{id}/deposits', [DepositController::class, 'store']);
 
-Route::post('/transfers', [TransferController::class, 'store']);
+Route::post('/transfers', [TransferController::class, 'store'])->middleware('throttle:transfers');
 Route::get('/transfers/{id}', [TransferController::class, 'show']);

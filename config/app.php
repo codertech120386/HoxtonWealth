@@ -17,6 +17,8 @@ return [
 
     'api_keys' => env('API_KEYS', ''),
 
+    'transfer_rate_limit' => (int) env('TRANSFER_RATE_LIMIT', 60),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
