@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\AuditEventType;
 use App\Enums\TransferStatus;
 use App\Enums\TransferType;
+use App\Jobs\ProcessTransferJob;
 use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\Transfer;
@@ -73,5 +74,56 @@ class TransferService
             // their committed row instead of erroring.
             return Transfer::where('idempotency_key', $idempotencyKey)->firstOrFail();
         }
+    }
+
+    /**
+     * Persist a PENDING transfer row + TransferRequested audit log atomically,
+     * then enqueue ProcessTransferJob to settle it asynchronously. Idempotent
+     * on $idempotencyKey: a duplicate request returns the original row and does
+     * not enqueue a second job.
+     */
+    public function initiateTransfer(
+        Account $fromAccount,
+        Account $toAccount,
+        int $amount,
+        string $idempotencyKey,
+        string $correlationId,
+    ): Transfer {
+        if ($existing = Transfer::where('idempotency_key', $idempotencyKey)->first()) {
+            return $existing;
+        }
+
+        try {
+            $transfer = DB::transaction(function () use ($fromAccount, $toAccount, $amount, $idempotencyKey, $correlationId): Transfer {
+                $transfer = Transfer::create([
+                    'type' => TransferType::Transfer,
+                    'idempotency_key' => $idempotencyKey,
+                    'from_account_id' => $fromAccount->id,
+                    'to_account_id' => $toAccount->id,
+                    'amount' => $amount,
+                    'status' => TransferStatus::Pending,
+                ]);
+
+                AuditLog::create([
+                    'event_type' => AuditEventType::TransferRequested,
+                    'transfer_id' => $transfer->id,
+                    'correlation_id' => $correlationId,
+                    'payload' => [
+                        'from_account_id' => $fromAccount->id,
+                        'to_account_id' => $toAccount->id,
+                        'amount' => $amount,
+                    ],
+                    'created_at' => now(),
+                ]);
+
+                return $transfer;
+            });
+        } catch (UniqueConstraintViolationException) {
+            return Transfer::where('idempotency_key', $idempotencyKey)->firstOrFail();
+        }
+
+        ProcessTransferJob::dispatch($transfer->id, $correlationId);
+
+        return $transfer;
     }
 }
