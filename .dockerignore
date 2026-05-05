@@ -1,0 +1,14 @@
+.git
+.gitignore
+.dockerignore
+.editorconfig
+.env
+node_modules
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+PLAN.md
+README.md
+.claude
