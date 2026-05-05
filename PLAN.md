@@ -152,11 +152,24 @@ This is exactly the event set the spec calls out under "Event-Driven Design". Mi
 **Files:** `database/migrations/*` (4 files), `app/Concerns/HasUuidv7s.php`, `app/Enums/{TransferType,TransferStatus,LedgerDirection,AuditEventType}.php`, `app/Models/{Account,Transfer,LedgerEntry,AuditLog}.php`, `database/seeders/SystemAccountSeeder.php`.
 **Scope:** M.
 
+#### Task 3.5: Swagger / OpenAPI scaffolding
+**Description:** Install `darkaonline/l5-swagger`. Publish its config. Add a global `OpenApiSpec` holder class with `#[OA\Info]`, `#[OA\Server]`, and `#[OA\SecurityScheme(name: 'X-Api-Key', type: 'apiKey')]` attributes. Convert the `/ping` route from a closure into a `PingController` with a sample `#[OA\Get]` annotation as the smoke test. Set `L5_SWAGGER_GENERATE_ALWAYS=true` in `.env.example` for dev convenience. Future endpoint tasks (4–9) inherit a one-line acceptance criterion: "endpoint visible and callable in Swagger UI".
+**Acceptance criteria:**
+- `GET /api/documentation` returns 200 (Swagger UI HTML).
+- `GET /docs` returns the OpenAPI 3 JSON spec.
+- The `/ping` operation appears in the UI and can be called from there with an X-Api-Key.
+
+**Verification:** `curl -sS -o /dev/null -w "%{http_code}" http://localhost:8080/api/documentation` returns `200`; UI loads in a browser; `Authorize` button accepts the key and `/ping` returns `{"ok": true}`.
+**Dependencies:** Task 2.
+**Files:** `composer.json`, `config/l5-swagger.php`, `app/Http/Controllers/OpenApiSpec.php`, `app/Http/Controllers/Api/V1/PingController.php`, `routes/api.php`, `.env.example`.
+**Scope:** S.
+
 ### Checkpoint A — Foundation
 - [ ] `docker compose up` boots cleanly.
 - [ ] Schema migrates and seeds; system account is unique.
 - [ ] Auth + correlation-ID middleware enforced.
 - [ ] Enum casts work end-to-end.
+- [ ] Swagger UI loads at `/api/documentation`.
 - [ ] All Pest tests pass.
 
 ---
