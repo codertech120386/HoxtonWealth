@@ -75,4 +75,55 @@ class TransferController
             'status' => $transfer->status->value,
         ], $isReplay ? 200 : 202);
     }
+
+    #[OA\Get(
+        path: '/api/v1/transfers/{id}',
+        summary: 'Get transfer status',
+        description: 'Returns the current state of any row in the transfers table — async user-to-user transfers (PENDING/PROCESSING/COMPLETED/FAILED) and synchronous deposits (always COMPLETED).',
+        security: [['apiKey' => []]],
+        tags: ['Transfers'],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK',
+                content: new OA\JsonContent(properties: [
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'type', type: 'string', enum: ['TRANSFER', 'DEPOSIT']),
+                    new OA\Property(property: 'status', type: 'string', enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']),
+                    new OA\Property(property: 'from_account_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'to_account_id', type: 'string', format: 'uuid'),
+                    new OA\Property(property: 'amount', type: 'integer'),
+                    new OA\Property(property: 'error_reason', type: 'string', nullable: true),
+                    new OA\Property(property: 'attempts', type: 'integer'),
+                    new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+                    new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+                ]),
+            ),
+            new OA\Response(response: 401, description: 'Missing or invalid X-Api-Key'),
+            new OA\Response(response: 404, description: 'Transfer not found'),
+        ],
+    )]
+    public function show(string $id): JsonResponse
+    {
+        $transfer = Transfer::find($id);
+        if ($transfer === null) {
+            throw new NotFoundHttpException();
+        }
+
+        return response()->json([
+            'id' => $transfer->id,
+            'type' => $transfer->type->value,
+            'status' => $transfer->status->value,
+            'from_account_id' => $transfer->from_account_id,
+            'to_account_id' => $transfer->to_account_id,
+            'amount' => $transfer->amount,
+            'error_reason' => $transfer->error_reason,
+            'attempts' => $transfer->attempts,
+            'created_at' => $transfer->created_at->toIso8601String(),
+            'updated_at' => $transfer->updated_at->toIso8601String(),
+        ]);
+    }
 }
