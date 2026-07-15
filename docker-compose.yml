@@ -22,6 +22,10 @@ services:
       - "8080:80"
     depends_on:
       - app
+    deploy:
+      resources:
+        limits:
+          memory: 256M   # nginx is tiny -> Fleet 'micro' tier
 
   app:
     build:
@@ -32,12 +36,21 @@ services:
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
+      APP_KEY: "base64:q9S6pNR8VMbqyRY/Id/1SE/nbUvpb6I4g17qDtdA22Q="
       LOG_CHANNEL: stderr
       DB_CONNECTION: pgsql
+      DB_HOST: hoxton-test.cnwaio4woavq.ap-south-1.rds.amazonaws.com
       DB_PORT: "5432"
+      DB_DATABASE: hoxton
+      DB_USERNAME: hoxton
+      DB_PASSWORD: hoxtonhoxton
       QUEUE_CONNECTION: database
       CACHE_STORE: database
       SESSION_DRIVER: array
+    deploy:
+      resources:
+        limits:
+          memory: 512M   # php-fpm -> Fleet 'small' tier
 
   worker:
     build:
@@ -45,7 +58,16 @@ services:
       dockerfile: docker/worker.Dockerfile
     environment:
       APP_ENV: production
+      APP_KEY: "base64:q9S6pNR8VMbqyRY/Id/1SE/nbUvpb6I4g17qDtdA22Q="
       DB_CONNECTION: pgsql
+      DB_HOST: hoxton-test.cnwaio4woavq.ap-south-1.rds.amazonaws.com
       DB_PORT: "5432"
+      DB_DATABASE: hoxton
+      DB_USERNAME: hoxton
+      DB_PASSWORD: hoxtonhoxton
       QUEUE_CONNECTION: database
       CACHE_STORE: database
+    deploy:
+      resources:
+        limits:
+          memory: 256M   # queue worker -> Fleet 'micro' tier
