@@ -80,6 +80,263 @@
                 ]
             }
         },
+        "/api/v1/accounts/{id}": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get account with current balance",
+                "description": "Balance is computed live from ledger_entries (signed sum: credit + / debit -).",
+                "operationId": "577c024ccebfc85ec3189eb045d43f2b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "balance": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid X-Api-Key"
+                    },
+                    "404": {
+                        "description": "Account not found, or target is the system account"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/{id}/deposits": {
+            "post": {
+                "tags": [
+                    "Deposits"
+                ],
+                "summary": "Deposit funds into an account",
+                "description": "Synchronously credits the account and debits the system account in a single transaction. Idempotent on the idempotency_key: replaying the same key returns the original transfer without writing again.",
+                "operationId": "f421c6fda5a9354078751574af0cb2c9",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount",
+                                    "idempotency_key"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "description": "Amount in minor units (cents).",
+                                        "type": "integer",
+                                        "example": 10000,
+                                        "minimum": 1
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "example": "deposit-abc-001",
+                                        "maxLength": 120
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Deposit completed (first request for this idempotency_key).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "transfer_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "COMPLETED"
+                                        },
+                                        "balance": {
+                                            "type": "integer",
+                                            "example": 10000
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay — same idempotency_key was already processed."
+                    },
+                    "401": {
+                        "description": "Missing or invalid X-Api-Key"
+                    },
+                    "404": {
+                        "description": "Account not found, or target is the system account"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/{id}/ledger": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Paginated ledger history for an account",
+                "description": "Returns ledger entries newest first, cursor-paginated. Each row carries the parent transfer_id (the spec's transaction_id) and transfer_type (TRANSFER or DEPOSIT).",
+                "operationId": "f1527ed8155b35cc84f4a247c4b66ccc",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Opaque cursor returned by the previous page.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "transfer_id": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "transfer_type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "TRANSFER",
+                                                            "DEPOSIT"
+                                                        ]
+                                                    },
+                                                    "direction": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "DEBIT",
+                                                            "CREDIT"
+                                                        ]
+                                                    },
+                                                    "amount": {
+                                                        "type": "integer"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "prev_cursor": {
+                                            "type": "string",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid X-Api-Key"
+                    },
+                    "404": {
+                        "description": "Account not found, or target is the system account"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
         "/api/v1/ping": {
             "get": {
                 "tags": [
@@ -115,6 +372,186 @@
                     }
                 ]
             }
+        },
+        "/api/v1/transfers": {
+            "post": {
+                "tags": [
+                    "Transfers"
+                ],
+                "summary": "Initiate an asynchronous transfer between two user accounts",
+                "description": "Persists a PENDING transfer and returns immediately. A background worker (ProcessTransferJob) settles it: locks both accounts, verifies sender balance, posts double-entry ledger rows, and marks the transfer COMPLETED or FAILED. Idempotent on idempotency_key.",
+                "operationId": "ab55567560e28275078e7dd652ac595a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "from_account_id",
+                                    "to_account_id",
+                                    "amount",
+                                    "idempotency_key"
+                                ],
+                                "properties": {
+                                    "from_account_id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "to_account_id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "amount": {
+                                        "type": "integer",
+                                        "example": 5000,
+                                        "minimum": 1
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "example": "transfer-abc-001",
+                                        "maxLength": 120
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted; processing asynchronously.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "transfer_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "PENDING"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay — same idempotency_key was already accepted."
+                    },
+                    "401": {
+                        "description": "Missing or invalid X-Api-Key"
+                    },
+                    "404": {
+                        "description": "One of the accounts does not exist, or one side is the system account"
+                    },
+                    "422": {
+                        "description": "Validation error (missing fields, amount ≤ 0, or from == to)"
+                    },
+                    "429": {
+                        "description": "Per-API-key rate limit exceeded; retry after the duration in the Retry-After header."
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/transfers/{id}": {
+            "get": {
+                "tags": [
+                    "Transfers"
+                ],
+                "summary": "Get transfer status",
+                "description": "Returns the current state of any row in the transfers table — async user-to-user transfers (PENDING/PROCESSING/COMPLETED/FAILED) and synchronous deposits (always COMPLETED).",
+                "operationId": "1235b1c3d96021552d02a83320c40715",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "TRANSFER",
+                                                "DEPOSIT"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "PENDING",
+                                                "PROCESSING",
+                                                "COMPLETED",
+                                                "FAILED"
+                                            ]
+                                        },
+                                        "from_account_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "to_account_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "amount": {
+                                            "type": "integer"
+                                        },
+                                        "error_reason": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "attempts": {
+                                            "type": "integer"
+                                        },
+                                        "created_at": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "updated_at": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid X-Api-Key"
+                    },
+                    "404": {
+                        "description": "Transfer not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -133,8 +570,16 @@
             "description": "Accounts"
         },
         {
+            "name": "Deposits",
+            "description": "Deposits"
+        },
+        {
             "name": "Health",
             "description": "Health"
+        },
+        {
+            "name": "Transfers",
+            "description": "Transfers"
         }
     ]
 }
