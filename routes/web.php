@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-# Healthcheck route for any deployment service
+# Healthcheck route for fleet
 Route::get('/', function () {
     return view('welcome');
 });
