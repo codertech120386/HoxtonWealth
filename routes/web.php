@@ -4,5 +4,5 @@ use Illuminate\Support\Facades\Route;
 
 # Healthcheck route for fleet hosting service
 Route::get('/', function () {
-    return "testing to deploys endpoint again after icons were changed";
+    return "testing the steps properly";
 });
