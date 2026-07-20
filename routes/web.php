@@ -4,5 +4,5 @@ use Illuminate\Support\Facades\Route;
 
 # Healthcheck route for fleet hosting service
 Route::get('/', function () {
-    return "testing the steps properly";
+    return "testing the steps properly on 2 environments";
 });
